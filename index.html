@@ -5,163 +5,146 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>道友请留步 v4.0 - K线操盘版</title>
     <style>
-        :root {
-            --bg-color: #0f0f13;
-            --panel-bg: #1a1a20;
-            --text-main: #e0e0e0;
-            --text-dim: #888;
-            --accent-gold: #ffd700;
-            --accent-red: #ff4d4d; /* 涨 */
-            --accent-green: #00cc66; /* 跌 */
-            --border: 1px solid #333;
-        }
+    :root {
+        --bg-color: #000000;
+        --panel-bg: #121212;
+        --text-main: #e0e0e0;
+        --text-dim: #888;
+        --accent-gold: #d4af37;
+        --accent-red: #ff4d4d;
+        --accent-green: #00cc66;
+        --border: 1px solid #2a2a2a;
+    }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
+    body {
+        background-color: #0f0f13;
+        color: var(--text-main);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
 
-        .app-container {
-            width: 100%;
-            max-width: 550px; /* 稍微宽一点放K线 */
-            height: 100%;
-            max-height: 950px;
-            background-color: var(--panel-bg);
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-            position: relative;
-        }
+    .app-container {
+        width: 100%;
+        max-width: 480px;
+        height: 100%;
+        background-color: var(--panel-bg);
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        position: relative;
+    }
 
-        /* 顶部仪表盘 */
-        .dashboard {
-            padding: 15px;
-            background: linear-gradient(180deg, #252530, #1a1a20);
-            border-bottom: 2px solid #d4af37;
-            flex-shrink: 0;
-        }
+    /* 顶部仪表盘 */
+    .dashboard {
+        padding: 15px;
+        background: linear-gradient(180deg, #1f1f25, #121212);
+        border-bottom: 1px solid var(--accent-gold);
+        flex-shrink: 0;
+    }
 
-        .realm-display { text-align: center; margin-bottom: 10px; }
-        .realm-badge {
-            display: inline-block; padding: 4px 15px;
-            border: 1px solid var(--accent-gold); color: var(--accent-gold);
-            border-radius: 20px; font-size: 16px; font-weight: bold;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.1);
-        }
+    .realm-display { text-align: center; margin-bottom: 10px; }
+    .realm-badge {
+        display: inline-block; padding: 4px 15px;
+        border: 1px solid var(--accent-gold); color: var(--accent-gold);
+        border-radius: 15px; font-size: 16px; font-weight: bold;
+        background: rgba(212, 175, 55, 0.1);
+    }
 
-        .assets-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 13px; }
-        .asset-item { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center; }
-        .asset-val { display: block; font-size: 15px; font-weight: bold; margin-top: 3px; color: #fff; }
-        .money-val { color: var(--accent-gold); }
+    .assets-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 12px; }
+    .asset-item { background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; text-align: center; }
+    .asset-val { display: block; font-size: 14px; font-weight: bold; margin-top: 4px; color: #fff; }
+    .money-val { color: var(--accent-gold); font-size: 15px; }
 
-        /* 突破栏 */
-        .cultivate-area {
-            padding: 8px 15px; background-color: #222; border-bottom: 1px solid #333;
-            display: flex; justify-content: space-between; align-items: center; font-size: 12px;
-        }
-        .btn-break {
-            background: var(--accent-gold); color: #000; border: none; padding: 5px 12px;
-            border-radius: 4px; font-weight: bold; cursor: pointer;
-        }
-        .btn-break:disabled { background: #444; color: #888; cursor: not-allowed; }
+    /* 突破区域 */
+    .cultivate-area {
+        padding: 10px 15px; background-color: #1a1a1a; border-bottom: 1px solid #333;
+        display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+        flex-shrink: 0;
+    }
+    .btn-break {
+        background: var(--accent-gold); color: #000; border: none; padding: 6px 15px;
+        border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px;
+    }
+    .btn-break:disabled { background: #333; color: #666; }
 
-        /* 市场列表 */
-        .market-list { flex-grow: 1; overflow-y: auto; padding: 10px; }
+    /* 市场列表 - 自动适应剩余高度 */
+    .market-list { 
+        flex-grow: 1; 
+        overflow-y: auto; 
+        padding: 10px; 
+        -webkit-overflow-scrolling: touch;
+        min-height: 0; /* 关键：防止flex子项溢出 */
+    }
 
-        .stock-card {
-            background-color: #25252b; margin-bottom: 12px; border-radius: 8px;
-            padding: 10px; border-left: 3px solid #555;
-        }
-        
-        .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .stock-name { font-weight: bold; font-size: 16px; }
-        .stock-price { font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; }
-        
-        /* K线图容器 */
-        .kline-container {
-            width: 100%; height: 80px; background: #1e1e24;
-            border: 1px solid #333; margin-bottom: 8px; position: relative;
-        }
-        canvas { width: 100%; height: 100%; display: block; }
+    .stock-card {
+        background-color: #1e1e24; margin-bottom: 12px; border-radius: 8px;
+        padding: 12px; border: 1px solid #333;
+    }
+    
+    .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .stock-name { font-weight: bold; font-size: 16px; color: #fff; }
+    .stock-price { font-family: monospace; font-size: 18px; font-weight: bold; }
+    
+    .kline-container {
+        width: 100%; height: 100px; background: #151518;
+        border: 1px solid #333; margin-bottom: 10px; position: relative;
+    }
+    canvas { width: 100%; height: 100%; display: block; }
 
-        /* 交易控制区 */
-        .trade-controls {
-            display: flex; gap: 5px; align-items: center;
-            background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px;
-        }
-        
-        .input-amount {
-            width: 60px; background: #111; border: 1px solid #444; color: #fff;
-            padding: 5px; text-align: center; border-radius: 3px; font-family: monospace;
-        }
-        
-        .btn-trade {
-            flex: 1; border: none; padding: 6px 0; border-radius: 3px;
-            font-size: 12px; cursor: pointer; color: white; transition: opacity 0.2s;
-        }
-        .btn-trade:hover { opacity: 0.8; }
-        .btn-buy { background-color: var(--accent-red); }
-        .btn-sell { background-color: var(--accent-green); } /* 国际惯例绿跌，国内红涨绿跌，这里按国内习惯：红涨绿跌 */
-        .btn-max { background-color: #636e72; flex: 0.5; }
+    .trade-controls { display: flex; gap: 8px; align-items: center; }
+    .input-amount {
+        width: 50px; background: #000; border: 1px solid #444; color: #fff;
+        padding: 8px 4px; text-align: center; border-radius: 4px; font-size: 14px;
+    }
+    .btn-trade {
+        flex: 1; border: none; padding: 8px 0; border-radius: 4px;
+        font-size: 13px; font-weight: bold; cursor: pointer; color: white;
+        touch-action: manipulation;
+    }
+    .btn-buy { background-color: var(--accent-red); }
+    .btn-sell { background-color: var(--accent-green); }
+    .btn-max { background-color: #555; flex: 0.6; }
 
-        /* 底部日志 */
-              /* ... 其他代码保持不变 ... */
+    /* 
+       ★ 重点修改区域 ★ 
+       这里使用了 !important 强制生效
+       高度设为 300px
+    */
+    .log-container {
+        height: 300px !important; 
+        background: #111; /* 稍微改浅一点点，看是否生效 */
+        border-top: 2px solid var(--accent-gold); /* 顶部加个金边，方便看界限 */
+        padding: 12px; 
+        overflow-y: auto; 
+        font-size: 13px; 
+        font-family: 'Consolas', monospace;
+        line-height: 1.6;
+        flex-shrink: 0; /* 禁止被压缩 */
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.6);
+        z-index: 10;
+    }
+    .log-line { margin-bottom: 5px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
+    .log-time { color: #666; margin-right: 5px; }
 
-        /* 市场列表：因为底部加高了，这里会自动缩小，但依然可以滚动 */
-        .market-list { 
-            flex-grow: 1; 
-            overflow-y: auto; 
-            padding: 10px; 
-            -webkit-overflow-scrolling: touch; 
-            min-height: 200px; /* 保证股票列表至少留出一点空间 */
-        }
+    .up { color: var(--accent-red); }
+    .down { color: var(--accent-green); }
+    .gold { color: var(--accent-gold); }
 
-        /* ... 其他代码 ... */
+    .modal-overlay {
+        position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.9);
+        display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 99;
+        backdrop-filter: blur(2px);
+    }
+    .modal-content { text-align: center; color: var(--accent-gold); animation: popIn 0.3s; padding: 20px; }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+</style>
 
-        /* 底部日志 - 大幅加高 */
-        .log-container {
-            height: 260px;  /* <--- 这里改大了，原来是160px */
-            background: #080808; 
-            border-top: 1px solid #333;
-            padding: 12px; 
-            overflow-y: auto; 
-            font-size: 12px; 
-            font-family: 'Consolas', monospace; /* 等宽字体对齐更好看 */
-            line-height: 1.6; /* 行间距稍微拉开一点，不费眼 */
-            flex-shrink: 0;   /* 防止被挤压 */
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); /* 加个阴影，区分度更高 */
-        }
-
-        /* ... 其他代码 ... */
-
-        .log-line { margin-bottom: 3px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
-        .log-time { color: #555; margin-right: 5px; }
-
-        .up { color: var(--accent-red); }
-        .down { color: var(--accent-green); }
-        .gold { color: var(--accent-gold); }
-
-        /* 弹窗 */
-        .modal-overlay {
-            position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.95);
-            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 99;
-        }
-        .modal-content { text-align: center; color: var(--accent-gold); animation: fadeIn 1s; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-
-        /* 滚动条 */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #444; }
-    </style>
 </head>
 <body>
 
