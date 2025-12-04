@@ -113,10 +113,35 @@
         .btn-max { background-color: #636e72; flex: 0.5; }
 
         /* 底部日志 */
-        .log-container {
-            height: 120px; background: #000; border-top: 1px solid #444;
-            padding: 8px; overflow-y: auto; font-size: 12px; font-family: 'Consolas', monospace;
+              /* ... 其他代码保持不变 ... */
+
+        /* 市场列表：因为底部加高了，这里会自动缩小，但依然可以滚动 */
+        .market-list { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            padding: 10px; 
+            -webkit-overflow-scrolling: touch; 
+            min-height: 200px; /* 保证股票列表至少留出一点空间 */
         }
+
+        /* ... 其他代码 ... */
+
+        /* 底部日志 - 大幅加高 */
+        .log-container {
+            height: 260px;  /* <--- 这里改大了，原来是160px */
+            background: #080808; 
+            border-top: 1px solid #333;
+            padding: 12px; 
+            overflow-y: auto; 
+            font-size: 12px; 
+            font-family: 'Consolas', monospace; /* 等宽字体对齐更好看 */
+            line-height: 1.6; /* 行间距稍微拉开一点，不费眼 */
+            flex-shrink: 0;   /* 防止被挤压 */
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); /* 加个阴影，区分度更高 */
+        }
+
+        /* ... 其他代码 ... */
+
         .log-line { margin-bottom: 3px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
         .log-time { color: #555; margin-right: 5px; }
 
