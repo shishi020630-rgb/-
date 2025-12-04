@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道友请留步 v4.0 - K线操盘版</title>
+    <style>
+        :root {
+            --bg-color: #0f0f13;
+            --panel-bg: #1a1a20;
+            --text-main: #e0e0e0;
+            --text-dim: #888;
+            --accent-gold: #ffd700;
+            --accent-red: #ff4d4d; /* 涨 */
+            --accent-green: #00cc66; /* 跌 */
+            --border: 1px solid #333;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 550px; /* 稍微宽一点放K线 */
+            height: 100%;
+            max-height: 950px;
+            background-color: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        /* 顶部仪表盘 */
+        .dashboard {
+            padding: 15px;
+            background: linear-gradient(180deg, #252530, #1a1a20);
+            border-bottom: 2px solid #d4af37;
+            flex-shrink: 0;
+        }
+
+        .realm-display { text-align: center; margin-bottom: 10px; }
+        .realm-badge {
+            display: inline-block; padding: 4px 15px;
+            border: 1px solid var(--accent-gold); color: var(--accent-gold);
+            border-radius: 20px; font-size: 16px; font-weight: bold;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.1);
+        }
+
+        .assets-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 13px; }
+        .asset-item { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center; }
+        .asset-val { display: block; font-size: 15px; font-weight: bold; margin-top: 3px; color: #fff; }
+        .money-val { color: var(--accent-gold); }
+
+        /* 突破栏 */
+        .cultivate-area {
+            padding: 8px 15px; background-color: #222; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+        }
+        .btn-break {
+            background: var(--accent-gold); color: #000; border: none; padding: 5px 12px;
+            border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        .btn-break:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        /* 市场列表 */
+        .market-list { flex-grow: 1; overflow-y: auto; padding: 10px; }
+
+        .stock-card {
+            background-color: #25252b; margin-bottom: 12px; border-radius: 8px;
+            padding: 10px; border-left: 3px solid #555;
+        }
+        
+        .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .stock-name { font-weight: bold; font-size: 16px; }
+        .stock-price { font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; }
+        
+        /* K线图容器 */
+        .kline-container {
+            width: 100%; height: 80px; background: #1e1e24;
+            border: 1px solid #333; margin-bottom: 8px; position: relative;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* 交易控制区 */
+        .trade-controls {
+            display: flex; gap: 5px; align-items: center;
+            background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px;
+        }
+        
+        .input-amount {
+            width: 60px; background: #111; border: 1px solid #444; color: #fff;
+            padding: 5px; text-align: center; border-radius: 3px; font-family: monospace;
+        }
+        
+        .btn-trade {
+            flex: 1; border: none; padding: 6px 0; border-radius: 3px;
+            font-size: 12px; cursor: pointer; color: white; transition: opacity 0.2s;
+        }
+        .btn-trade:hover { opacity: 0.8; }
+        .btn-buy { background-color: var(--accent-red); }
+        .btn-sell { background-color: var(--accent-green); } /* 国际惯例绿跌，国内红涨绿跌，这里按国内习惯：红涨绿跌 */
+        .btn-max { background-color: #636e72; flex: 0.5; }
+
+        /* 底部日志 */
+        .log-container {
+            height: 120px; background: #000; border-top: 1px solid #444;
+            padding: 8px; overflow-y: auto; font-size: 12px; font-family: 'Consolas', monospace;
+        }
+        .log-line { margin-bottom: 3px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
+        .log-time { color: #555; margin-right: 5px; }
+
+        .up { color: var(--accent-red); }
+        .down { color: var(--accent-green); }
+        .gold { color: var(--accent-gold); }
+
+        /* 弹窗 */
+        .modal-overlay {
+            position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.95);
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 99;
+        }
+        .modal-content { text-align: center; color: var(--accent-gold); animation: fadeIn 1s; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #444; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- 仪表盘 -->
+    <div class="dashboard">
+        <div class="realm-display">
+            <span class="realm-badge" id="ui-realm">练气期 一层</span>
+        </div>
+        <div class="assets-grid">
+            <div class="asset-item">
+                <span style="color:#888">灵石</span>
+                <span class="asset-val money-val" id="ui-money">0</span>
+            </div>
+            <div class="asset-item">
+                <span style="color:#888">总资产</span>
+                <span class="asset-val" id="ui-total">0</span>
+            </div>
+            <div class="asset-item">
+                <span style="color:#888">修仙天数</span>
+                <span class="asset-val" id="ui-days">1</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 突破栏 -->
+    <div class="cultivate-area">
+        <span id="ui-next-realm" style="color:#888">下一境界: 筑基期 (需 3000)</span>
+        <div>
+            <button class="btn-break" style="background:#444; color:#ccc; font-size:10px;" onclick="game.resetData()">重置</button>
+            <button class="btn-break" id="btn-break" onclick="game.breakthrough()">突破</button>
+        </div>
+    </div>
+
+    <!-- 股票列表 -->
+    <div class="market-list" id="stock-list">
+        <!-- JS 生成 -->
+    </div>
+
+    <!-- 日志 -->
+    <div class="log-container" id="game-log">
+        <div class="log-line"><span class="log-time">系统</span> 欢迎道友，K线图已加载，祝您早日飞升。</div>
+    </div>
+
+    <!-- 结局 -->
+    <div class="modal-overlay" id="end-screen">
+        <div class="modal-content">
+            <h1 style="font-size:40px; text-shadow:0 0 20px red">大道已成</h1>
+            <p>恭喜道友破碎虚空，飞升仙界！</p>
+            <br>
+            <button class="btn-break" onclick="location.reload()">转世重修</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/**
+ * 游戏配置
+ */
+const CONFIG = {
+    tickRate: 1500, // 1.5秒一回合（一天）
+    saveKey: 'xiuxian_stock_v4_kline',
+    maxHistory: 40 // K线保留最近40天
+};
+
+// 境界数据
+const REALMS = [
+    { name: "练气期", cost: 500, income: 2 },
+    { name: "筑基期", cost: 3000, income: 15 },
+    { name: "金丹期", cost: 15000, income: 80 },
+    { name: "元婴期", cost: 80000, income: 400 },
+    { name: "化神期", cost: 400000, income: 2000 },
+    { name: "炼虚期", cost: 2000000, income: 8000 },
+    { name: "合体期", cost: 10000000, income: 30000 },
+    { name: "大乘期", cost: 50000000, income: 100000 },
+    { name: "渡劫期", cost: 200000000, income: 500000 },
+    { name: "破碎虚空", cost: 9999999999, income: 0 }
+];
+
+// 股票定义
+const STOCK_DEFS = [
+    { id: 's1', name: '青云门', base: 10, vol: 0.04, desc: '正道魁首' },
+    { id: 's2', name: '合欢宗', base: 6, vol: 0.12, desc: '妖股风险' },
+    { id: 's3', name: '万宝楼', base: 50, vol: 0.02, desc: '稳健蓝筹' },
+    { id: 's4', name: '神兵阁', base: 25, vol: 0.06, desc: '周期波动' },
+    { id: 's5', name: '药王谷', base: 15, vol: 0.03, desc: '防御性强' }
+];
+
+// --- 庞大的随机事件生成器 ---
+// --- 究极扩充后的随机事件生成器 (v4.5) ---
+const EVENT_GEN = {
+    // 1. 消息来源：增加权威性、路边社、神秘感
+    sources: [
+        "【天机阁头条】", "【仙界快讯】", "【路边社爆料】", "【神识传音】", 
+        "【百晓生锐评】", "【修真日报】", "【据可靠消息】", "【甚至有传言】"
+    ],
+
+    // 2. 宏观环境（不针对特定人，针对整个宗门）
+    macro_events: [
+        { text: "护山大阵年久失修，防御力下降。", effect: -0.15 },
+        { text: "所在灵脉突然枯竭，灵气浓度暴跌！", effect: -0.25 },
+        { text: "发现上古大能遗留的洞天福地！", effect: 0.35 },
+        { text: "被修仙联盟评为“年度最不具投资价值宗门”。", effect: -0.2 },
+        { text: "成功举办“万仙大会”，声望达到顶峰。", effect: 0.25 },
+        { text: "遭遇千年难遇的兽潮围攻。", effect: -0.3 },
+        { text: "获得仙界使者亲自接见，赐下仙缘。", effect: 0.4 }
+    ],
+
+    // 3. 组合式事件模板 (主语 + 行为 + 结果)
+    subjects: [
+        "{name}老祖", "{name}掌门", "{name}首席大弟子", "{name}看门大爷", 
+        "{name}炼丹房长老", "{name}灵兽园主", "{name}藏经阁扫地僧", "{name}真传弟子"
+    ],
+    
+    actions_good: [
+        "顿悟飞升，引发天地异象", "在外出历练时捡到神器", "改良了核心功法，修炼速度翻倍", 
+        "与龙族公主联姻，获得强力盟友", "炼制出传说中的九转金丹", "在拍卖会捡漏买到残缺仙图",
+        "单枪匹马挑翻了敌对魔教分舵"
+    ],
+    
+    actions_bad: [
+        "修炼走火入魔，修为尽失", "被爆出是魔道卧底", "卷走宗门库房潜逃", 
+        "炼丹炸炉，炸毁半个山头", "因感情纠纷被退婚，道心破碎", "误入禁地，生死未卜",
+        "醉酒后失手打碎了镇派之宝"
+    ],
+
+    results_good: [
+        "股价直线拉升！", "散修们疯狂抢购股票。", "宗门气运值爆表。", "被誉为修仙界之光。"
+    ],
+    
+    results_bad: [
+        "股价断崖式下跌！", "投资者连夜排队退股。", "宗门信用评级降至垃圾级。", "甚至有人扬言要砸盘。"
+    ],
+
+    // 生成逻辑
+    generate: function(stockName) {
+        const rand = Math.random();
+        let text = "";
+        let effect = 0;
+        let isGood = true;
+        const src = this.sources[Math.floor(Math.random() * this.sources.length)];
+
+        // 30% 概率触发宏观大事件（不涉及具体某个人）
+        if (rand < 0.3) {
+            const evt = this.macro_events[Math.floor(Math.random() * this.macro_events.length)];
+            text = `${src}${stockName}${evt.text}`;
+            effect = evt.effect;
+            isGood = effect > 0;
+        } 
+        // 70% 概率触发人物组合事件
+        else {
+            isGood = Math.random() > 0.5;
+            let sub = this.subjects[Math.floor(Math.random() * this.subjects.length)];
+            sub = sub.replace("{name}", stockName);
+            
+            const act = isGood 
+                ? this.actions_good[Math.floor(Math.random() * this.actions_good.length)]
+                : this.actions_bad[Math.floor(Math.random() * this.actions_bad.length)];
+                
+            const res = isGood
+                ? this.results_good[Math.floor(Math.random() * this.results_good.length)]
+                : this.results_bad[Math.floor(Math.random() * this.results_bad.length)];
+
+            // 波动幅度：10% - 30%
+            effect = (0.1 + Math.random() * 0.2) * (isGood ? 1 : -1);
+            text = `${src}${sub}${act}，${res}`;
+        }
+        
+        return { text, effect, isGood };
+    }
+};
+
+
+class Game {
+    constructor() {
+        this.data = {
+            money: 100,
+            realmIdx: 0,
+            days: 1,
+            stocks: []
+        };
+        this.timer = null;
+        this.incomeTimer = null;
+    }
+
+    init() {
+        this.load();
+        this.initUI();
+        this.startLoops();
+    }
+
+    // 初始化数据结构
+    initStocks() {
+        this.data.stocks = STOCK_DEFS.map(def => ({
+            ...def,
+            price: def.base,
+            owned: 0,
+            trend: 0,
+            // K线历史: {open, close, high, low}
+            history: Array(CONFIG.maxHistory).fill(null).map(() => ({
+                open: def.base, close: def.base, high: def.base, low: def.base
+            }))
+        }));
+    }
+
+    load() {
+        const saved = localStorage.getItem(CONFIG.saveKey);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                this.data = { ...this.data, ...parsed };
+                // 简单的版本兼容检查
+                if (this.data.stocks.length !== STOCK_DEFS.length || !this.data.stocks[0].history) {
+                    this.initStocks();
+                }
+            } catch(e) { this.initStocks(); }
+        } else {
+            this.initStocks();
+        }
+    }
+
+    save() {
+        localStorage.setItem(CONFIG.saveKey, JSON.stringify(this.data));
+    }
+
+    resetData() {
+        if(confirm("确定要散尽家财，重修大道吗？")) {
+            localStorage.removeItem(CONFIG.saveKey);
+            location.reload();
+        }
+    }
+
+    startLoops() {
+        this.timer = setInterval(() => {
+            this.marketTick();
+            this.data.days++;
+            this.save();
+        }, CONFIG.tickRate);
+
+        this.incomeTimer = setInterval(() => {
+            const income = REALMS[this.data.realmIdx].income;
+            if (income > 0) {
+                this.data.money += income;
+                this.updateHeader();
+            }
+        }, 1000);
+    }
+
+    // --- 核心市场逻辑 ---
+    marketTick() {
+        let eventTriggered = false;
+
+        this.data.stocks.forEach(s => {
+            // 1. 记录开盘价 (即上一轮收盘价)
+            const openPrice = s.price;
+
+            // 2. 计算趋势与波动
+            s.trend = s.trend * 0.9 + (Math.random() - 0.5) * 0.3; // 动量衰减+随机扰动
+            let changePct = (Math.random() - 0.5) * s.vol * 2 + (s.trend * 0.05);
+            
+            // 3. 随机事件判定 (5%概率)
+            if (!eventTriggered && Math.random() < 0.05) {
+                const evt = EVENT_GEN.generate(s.name);
+                changePct += evt.effect;
+                this.log(evt.text, evt.isGood ? "up" : "down");
+                eventTriggered = true;
+            }
+
+            // 4. 计算收盘价
+            let closePrice = openPrice * (1 + changePct);
+            if (closePrice < 0.5) closePrice = 0.5;
+
+            // 5. 模拟最高/最低价 (为了画K线影线)
+            // 简单的模拟：High是Open/Close中大的那个再随机加点，Low同理
+            const maxP = Math.max(openPrice, closePrice);
+            const minP = Math.min(openPrice, closePrice);
+            const highPrice = maxP * (1 + Math.random() * s.vol);
+            const lowPrice = minP * (1 - Math.random() * s.vol);
+
+            // 6. 更新数据
+            s.price = closePrice;
+            
+            // 7. 更新K线历史
+            s.history.push({
+                open: openPrice,
+                close: closePrice,
+                high: highPrice,
+                low: lowPrice
+            });
+            if (s.history.length > CONFIG.maxHistory) s.history.shift();
+        });
+
+        this.updateUI();
+    }
+
+    // --- 交易逻辑 ---
+    trade(id, isBuy) {
+        const stock = this.data.stocks.find(s => s.id === id);
+        const input = document.getElementById(`input-${id}`);
+        let amount = parseInt(input.value);
+
+        if (isNaN(amount) || amount <= 0) {
+            this.log("请输入正确的数量", "gold");
+            return;
+        }
+
+        if (isBuy) {
+            const cost = stock.price * amount;
+            if (this.data.money >= cost) {
+                this.data.money -= cost;
+                stock.owned += amount;
+                this.log(`买入 ${amount}股 [${stock.name}]`, "up");
+            } else {
+                this.log("灵石不足！", "down");
+            }
+        } else {
+            if (stock.owned >= amount) {
+                const gain = stock.price * amount;
+                this.data.money += gain;
+                stock.owned -= amount;
+                this.log(`卖出 ${amount}股 [${stock.name}]`, "down");
+            } else {
+                this.log("持仓不足！", "down");
+            }
+        }
+        this.updateHeader();
+        this.updateStockCard(stock);
+    }
+
+    tradeAll(id, isBuy) {
+        const stock = this.data.stocks.find(s => s.id === id);
+        if (isBuy) {
+            const max = Math.floor(this.data.money / stock.price);
+            if (max > 0) {
+                document.getElementById(`input-${id}`).value = max;
+                this.trade(id, true);
+            } else {
+                this.log("买不起哪怕一股...", "down");
+            }
+        } else {
+            if (stock.owned > 0) {
+                document.getElementById(`input-${id}`).value = stock.owned;
+                this.trade(id, false);
+            } else {
+                this.log("没有持仓", "down");
+            }
+        }
+    }
+
+    breakthrough() {
+        const next = REALMS[this.data.realmIdx + 1];
+        if (this.data.money >= next.cost) {
+            this.data.money -= next.cost;
+            this.data.realmIdx++;
+            this.log(`=== 渡劫成功！晋升 ${REALMS[this.data.realmIdx].name} ===`, "gold");
+            this.updateHeader();
+            if (this.data.realmIdx >= REALMS.length - 1) {
+                document.getElementById('end-screen').style.display = 'flex';
+                clearInterval(this.timer);
+            }
+        }
+    }
+
+    // --- UI 渲染 ---
+    initUI() {
+        const list = document.getElementById('stock-list');
+        list.innerHTML = "";
+        this.data.stocks.forEach(s => {
+            const div = document.createElement('div');
+            div.className = "stock-card";
+            div.id = `card-${s.id}`;
+            div.innerHTML = `
+                <div class="stock-header">
+                    <div>
+                        <div class="stock-name">${s.name}</div>
+                        <div style="font-size:12px; color:#666;">${s.desc}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="stock-price" id="price-${s.id}">${s.price.toFixed(2)}</div>
+                        <div style="font-size:12px; color:#888">持仓: <span id="owned-${s.id}" class="gold">${s.owned}</span></div>
+                    </div>
+                </div>
+                
+                <div class="kline-container">
+                    <canvas id="canvas-${s.id}"></canvas>
+                </div>
+
+                <div class="trade-controls">
+                    <input type="number" id="input-${s.id}" class="input-amount" value="100" min="1">
+                    <button class="btn-trade btn-buy" onclick="game.trade('${s.id}', true)">买入</button>
+                    <button class="btn-trade btn-sell" onclick="game.trade('${s.id}', false)">卖出</button>
+                    <button class="btn-trade btn-max" onclick="game.tradeAll('${s.id}', true)">梭哈</button>
+                    <button class="btn-trade btn-max" onclick="game.tradeAll('${s.id}', false)">清仓</button>
+                </div>
+            `;
+            list.appendChild(div);
+            
+            // 初始化Canvas尺寸
+            setTimeout(() => {
+                const cvs = document.getElementById(`canvas-${s.id}`);
+                const container = cvs.parentElement;
+                cvs.width = container.clientWidth;
+                cvs.height = container.clientHeight;
+                this.drawKline(s);
+            }, 100);
+        });
+        this.updateHeader();
+    }
+
+    updateUI() {
+        this.data.stocks.forEach(s => this.updateStockCard(s));
+        this.updateHeader();
+    }
+
+    updateStockCard(s) {
+        // 更新价格
+        const priceEl = document.getElementById(`price-${s.id}`);
+        const oldPrice = parseFloat(priceEl.innerText);
+        priceEl.innerText = s.price.toFixed(2);
+        priceEl.className = s.price >= oldPrice ? "stock-price up" : "stock-price down";
+        
+        // 更新持仓
+        document.getElementById(`owned-${s.id}`).innerText = s.owned;
+
+        // 重绘K线
+        this.drawKline(s);
+    }
+
+    // --- 核心：绘制K线 ---
+    drawKline(stock) {
+        const cvs = document.getElementById(`canvas-${stock.id}`);
+        if (!cvs) return;
+        const ctx = cvs.getContext('2d');
+        const W = cvs.width;
+        const H = cvs.height;
+        const pad = 5;
+
+        // 清空
+        ctx.clearRect(0, 0, W, H);
+
+        // 找出最大最小值以定比例
+        let max = 0, min = Infinity;
+        stock.history.forEach(k => {
+            if (k.high > max) max = k.high;
+            if (k.low < min) min = k.low;
+        });
+        // 防止除以0
+        if (max === min) { max += 1; min -= 1; }
+        
+        const range = max - min;
+        const candleW = (W - 20) / CONFIG.maxHistory; // 蜡烛宽度
+
+        stock.history.forEach((k, i) => {
+            const x = i * candleW + 10;
+            // 坐标转换：价格越高，y越小
+            const yOpen = H - ((k.open - min) / range) * (H - 2*pad) - pad;
+            const yClose = H - ((k.close - min) / range) * (H - 2*pad) - pad;
+            const yHigh = H - ((k.high - min) / range) * (H - 2*pad) - pad;
+            const yLow = H - ((k.low - min) / range) * (H - 2*pad) - pad;
+
+            const isUp = k.close >= k.open;
+            ctx.fillStyle = isUp ? '#ff4d4d' : '#00cc66'; // 红涨绿跌
+            ctx.strokeStyle = isUp ? '#ff4d4d' : '#00cc66';
+
+            // 画影线 (High to Low)
+            ctx.beginPath();
+            ctx.moveTo(x + candleW/2, yHigh);
+            ctx.lineTo(x + candleW/2, yLow);
+            ctx.stroke();
+
+            // 画实体 (Open to Close)
+            // 至少1px高度
+            let bodyH = Math.abs(yClose - yOpen);
+            if (bodyH < 1) bodyH = 1;
+            const bodyY = Math.min(yOpen, yClose);
+            
+            ctx.fillRect(x + 1, bodyY, candleW - 2, bodyH);
+        });
+    }
+
+    updateHeader() {
+        const r = REALMS[this.data.realmIdx];
+        const next = REALMS[this.data.realmIdx + 1];
+        
+        let stockVal = this.data.stocks.reduce((acc, s) => acc + (s.price * s.owned), 0);
+        let total = this.data.money + stockVal;
+
+        document.getElementById('ui-realm').innerText = r.name;
+        document.getElementById('ui-money').innerText = Math.floor(this.data.money).toLocaleString();
+        document.getElementById('ui-total').innerText = Math.floor(total).toLocaleString();
+        document.getElementById('ui-days').innerText = this.data.days;
+
+        const btn = document.getElementById('btn-break');
+        const txt = document.getElementById('ui-next-realm');
+        if (next) {
+            txt.innerText = `下一境界: ${next.name} (需 ${next.cost.toLocaleString()})`;
+            btn.disabled = this.data.money < next.cost;
+        } else {
+            txt.innerText = "已至巅峰";
+            btn.style.display = "none";
+        }
+    }
+
+    log(msg, type) {
+        const box = document.getElementById('game-log');
+        const div = document.createElement('div');
+        div.className = `log-line ${type}`;
+        div.innerHTML = `<span class="log-time">[${this.data.days}日]</span>${msg}`;
+        box.prepend(div);
+        if (box.children.length > 50) box.lastChild.remove();
+    }
+}
+
+const game = new Game();
+game.init();
+
+// 窗口大小改变时重置Canvas尺寸
+window.onresize = () => {
+    game.data.stocks.forEach(s => {
+        const cvs = document.getElementById(`canvas-${s.id}`);
+        if(cvs) {
+            cvs.width = cvs.parentElement.clientWidth;
+            cvs.height = cvs.parentElement.clientHeight;
+            game.drawKline(s);
+        }
+    });
+};
+
+</script>
+</body>
+</html>
